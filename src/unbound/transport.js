@@ -89,18 +89,24 @@ export function exchange({ host, port, tls: credentials, command, timeoutMs = 10
     let settled = false;
     const chunks = [];
     let size = 0;
-    const socket = credentials
-      ? tls.connect({
-          host,
-          port,
-          ca: credentials.ca,
-          cert: credentials.cert,
-          key: credentials.key,
-          servername: SERVER_NAME,
-          checkServerIdentity,
-          minVersion: 'TLSv1.2',
-        })
-      : net.connect({ host, port });
+    let socket;
+    try {
+      socket = credentials
+        ? tls.connect({
+            host,
+            port,
+            ca: credentials.ca,
+            cert: credentials.cert,
+            key: credentials.key,
+            servername: SERVER_NAME,
+            checkServerIdentity,
+            minVersion: 'TLSv1.2',
+          })
+        : net.connect({ host, port });
+    } catch (err) {
+      reject(new TransportError('tls', `TLS: ${err.code ?? err.message}`));
+      return;
+    }
     phase = credentials ? 'handshake' : 'connect';
 
     const finish = (err, value) => {

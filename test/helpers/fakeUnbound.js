@@ -13,13 +13,12 @@ const fixture = (name) =>
 
 export const REAL = {
   stats: fixture('stats-noreset-extended.txt'),
+  // The same Unbound with extended-statistics: no.
+  statsBasic: fixture('stats-noreset-basic.txt'),
   status: fixture('status.txt'),
   flush: fixture('flush-zone-root.txt'),
   unknownCommand: fixture('error-unknown-command.txt'),
 };
-
-// Keys of the extended statistics (extended-statistics: yes).
-const EXTENDED = /^(num\.|unwanted\.|msg\.cache|rrset\.cache|infra\.cache|key\.cache|mem\.)/;
 
 export class FakeUnbound {
   /**
@@ -94,9 +93,9 @@ export class FakeUnbound {
       'num.answer.rcode.NXDOMAIN': c.nxdomain,
     };
     return (
-      REAL.stats
+      (this.extended ? REAL.stats : REAL.statsBasic)
         .split('\n')
-        .filter((line) => line && (this.extended || !EXTENDED.test(line)))
+        .filter(Boolean)
         .map((line) => {
           const key = line.slice(0, line.indexOf('='));
           return key in values ? `${key}=${values[key]}` : line;

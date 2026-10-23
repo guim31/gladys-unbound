@@ -19,11 +19,8 @@ test('parseStats reads the real stats_noreset answer', () => {
 });
 
 test('without extended statistics, no SERVFAIL nor NXDOMAIN', () => {
-  const plain = REAL.stats
-    .split('\n')
-    .filter((line) => !line.startsWith('num.'))
-    .join('\n');
-  const stats = parseStats(plain);
+  const stats = parseStats(REAL.statsBasic);
+  assert.equal(stats.queries, 1);
   assert.equal(stats.extended, false);
   assert.equal(stats.servfail, null);
   assert.equal(stats.nxdomain, null);
@@ -122,4 +119,13 @@ test('the window keeps 15 minutes of readings', () => {
   }
   assert.ok(rates.samples.length <= 17, `${rates.samples.length} samples kept`);
   assert.ok(rates.samples[0].at <= 45 * 60_000);
+});
+
+test('no rate from two readings a few seconds apart', () => {
+  const rates = new Rates();
+  rates.add(sample(0, { queries: 0 }));
+  const close = rates.add(sample(2_000, { queries: 100, servfail: 50 }));
+  assert.equal(close.queriesPerMinute, null);
+  assert.equal(close.servfailPerMinute, null);
+  assert.equal(rates.add(sample(60_000, { queries: 600, servfail: 50 })).queriesPerMinute, 517); // 500 in 58 s
 });

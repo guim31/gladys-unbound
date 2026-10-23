@@ -61,6 +61,12 @@ export const PEM_TEXT = {
     de: 'Datei im Container nicht gefunden',
     es: 'archivo no encontrado en el contenedor',
   },
+  mismatch: {
+    en: 'does not match the client certificate',
+    fr: 'ne correspond pas au certificat client',
+    de: 'passt nicht zum Client-Zertifikat',
+    es: 'no corresponde al certificado de cliente',
+  },
   invalid: {
     en: 'paste the whole file, from -----BEGIN to -----END',
     fr: 'collez tout le fichier, de -----BEGIN à -----END',

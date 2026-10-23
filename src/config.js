@@ -10,6 +10,7 @@
 // logged with their content.
 // -----------------------------------------------------------------------------
 
+import { createSecureContext } from 'node:tls';
 import { PemError, checkCertificate, checkPrivateKey, readPem } from './unbound/pem.js';
 
 export const LANGUAGES = ['en', 'fr', 'de', 'es'];
@@ -109,7 +110,16 @@ export function readCredentials(source, io) {
   const ca = read('server_cert', checkCertificate);
   const cert = read('control_cert', checkCertificate);
   const key = read('control_key', checkPrivateKey);
-  const problem = ca.problem ?? cert.problem ?? key.problem ?? null;
+  let problem = ca.problem ?? cert.problem ?? key.problem ?? null;
+  if (!problem) {
+    try {
+      // The key of another unbound-control-setup run: OpenSSL refuses the
+      // pair, synchronously, at every connection.
+      createSecureContext({ ca: ca.pem, cert: cert.pem, key: key.pem });
+    } catch {
+      problem = 'control_key:mismatch';
+    }
+  }
   return problem
     ? { tls: null, problem }
     : { tls: { ca: ca.pem, cert: cert.pem, key: key.pem }, problem: null };

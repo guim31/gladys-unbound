@@ -235,6 +235,13 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
   cache et temps de récursion moyen sur 15 min (`avg × recursivereplies` se soustrait) ; à la
   première lecture, valeurs depuis le démarrage. Un compteur qui baisse (redémarrage, `stats`)
   vide l'historique.
+- **Clé d'un autre `unbound-control-setup`** : `tls.connect` lève **en synchrone**
+  `ERR_OSSL_X509_KEY_VALUES_MISMATCH` (pas un événement `error`). `readCredentials` le détecte par
+  `tls.createSecureContext` (problème `control_key:mismatch`) et `exchange` entoure `tls.connect`
+  d'un try. OpenSSL ne le signale qu'à type de clé égal : une clé EC face au certificat RSA passe
+  le contrôle (c'est ce que fait la clé fabriquée par les tests).
+- Le SDK ne transmet **pas la langue** à `onWidgetAction` (seulement `settings` et `values`) : les
+  erreurs d'un bouton de widget partent dans la langue de la configuration.
 - `statistics-interval` sans `statistics-cumulative: yes` remet aussi les compteurs à zéro :
   documenté.
 - Identité de l'appareil fixe (`unbound:server`) : Unbound n'expose aucun identifiant d'instance.

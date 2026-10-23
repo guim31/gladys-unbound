@@ -81,3 +81,15 @@ test('normalizeConfig: plain TCP needs no certificate; defaults and bounds', () 
   assert.equal(normalizeConfig({}).server, null);
   assert.equal(normalizeConfig({}).invalidAddress, false);
 });
+
+test('a client key that does not match the client certificate is named', async () => {
+  const { generateKeyPairSync } = await import('node:crypto');
+  // unbound-control-setup makes RSA keys: the key of another run.
+  const other = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  assert.equal(
+    normalizeConfig({ ...TLS_CONFIG, control_key: oneLine(other) }).credentialsProblem,
+    'control_key:mismatch',
+  );
+});

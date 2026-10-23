@@ -108,7 +108,7 @@ export class UnboundHub {
     this.connection = null;
     await this.reconfigure(config);
     if (this.record) {
-      await this.publishStates({ force: true });
+      await this.publishStates(this.record, { force: true });
     }
   }
 
@@ -122,6 +122,11 @@ export class UnboundHub {
       this.record = this.newRecord(config, signature);
     } else {
       this.record.server = config.server; // a new name: same readings
+    }
+    for (const key of [...this.warned]) {
+      if (key.startsWith('certificates:') && key !== `certificates:${config.credentialsProblem}`) {
+        this.warned.delete(key);
+      }
     }
     if (config.credentialsProblem) {
       const [field, reason] = config.credentialsProblem.split(':');
@@ -223,7 +228,7 @@ export class UnboundHub {
     if (!this.record || device.external_id !== deviceIds(this.gladys).device) {
       return;
     }
-    await this.publishStates({ force: true });
+    await this.publishStates(this.record, { force: true });
     this.gladys.requestWidgetRefresh(WIDGET_KEY);
   }
 
@@ -291,7 +296,7 @@ export class UnboundHub {
     if (wasDown) {
       const downMinutes = Math.round((this.now() - downSince) / 60_000);
       logger.info(`${this.label()} answers again after ${downMinutes} min`);
-      await this.fire(TRIGGERS.RECOVERED, { down_minutes: downMinutes });
+      await this.fire(record, TRIGGERS.RECOVERED, { down_minutes: downMinutes });
     } else if (hadError) {
       logger.info(`${this.label()}: connection restored`);
     } else if (previous.reachable === null) {
@@ -314,7 +319,7 @@ export class UnboundHub {
         this.problem('devices', `Discovered devices refused: ${err.message}`);
       }
     }
-    await this.publishStates();
+    await this.publishStates(record);
     return true;
   }
 
@@ -337,14 +342,18 @@ export class UnboundHub {
       },
     ];
     for (const check of checks) {
-      if (check.value === null || !check.threshold) {
+      if (!check.threshold) {
+        record.above[check.key] = false;
+        continue;
+      }
+      if (check.value === null) {
         continue; // no rate yet (first reading, restart), or the alert is off
       }
       const above = check.value >= check.threshold;
       if (above && !record.above[check.key]) {
         record.above[check.key] = true;
         logger.info(`${this.label()}: ${check.variable} ${check.value} ≥ ${check.threshold}`);
-        await this.fire(check.trigger, {
+        await this.fire(record, check.trigger, {
           [check.variable]: check.value,
           threshold: check.threshold,
         });
@@ -368,7 +377,10 @@ export class UnboundHub {
     }
     // A failed reading leaves a hole: the rates start again afterwards.
     record.rates.reset();
-    await this.publishStates();
+    await this.publishStates(record);
+    if (record.dropped) {
+      return false;
+    }
     // Only silence counts as down: certificates or a closed connection are a
     // configuration problem, reported by the connection status.
     if (err.kind !== ERROR_KINDS.UNREACHABLE) {
@@ -384,7 +396,9 @@ export class UnboundHub {
     }
     if (!record.down && record.failures >= this.timings.downAfterFailures) {
       record.down = true;
-      await this.fire(TRIGGERS.UNREACHABLE, { error: errorText(err, this.config.language) });
+      await this.fire(record, TRIGGERS.UNREACHABLE, {
+        error: errorText(err, this.config.language),
+      });
     }
     return true;
   }
@@ -403,11 +417,14 @@ export class UnboundHub {
     record.retryTimer.unref?.();
   }
 
-  async fire(key, data) {
+  async fire(record, key, data) {
+    if (record.dropped) {
+      return;
+    }
     try {
       await this.gladys.publishSceneEvent(key, {
         device: deviceIds(this.gladys).device,
-        server: serverName(this.record.server),
+        server: serverName(record.server),
         ...data,
       });
       this.resolved('scene-event');
@@ -418,12 +435,12 @@ export class UnboundHub {
 
   // --- Publishing to Gladys --------------------------------------------------
 
-  async publishStates({ force = false } = {}) {
-    if (!this.record) {
+  async publishStates(record, { force = false } = {}) {
+    if (!record || record.dropped) {
       return;
     }
     const states = [];
-    for (const { externalId, value } of featureValues(this.gladys, this.record.snapshot)) {
+    for (const { externalId, value } of featureValues(this.gladys, record.snapshot)) {
       if (value === null) {
         continue;
       }
@@ -547,8 +564,7 @@ export class UnboundHub {
    * @param {string} [name] empty: the whole cache
    * @returns {Promise<{ removed: number, name: string }>}
    */
-  async flushCache(name) {
-    const language = this.config?.language;
+  async flushCache(name, language = this.config?.language) {
     if (!this.config?.allowFlush) {
       throw new Error(pick(ACTION_TEXT.flushDisabled, language));
     }
@@ -560,8 +576,11 @@ export class UnboundHub {
     try {
       const answer = await record.client.flushZone(zone);
       const result = parseFlush(answer);
-      logger.info(`${this.label()}: cache flushed (${zone}), ${result?.removed ?? '?'} entries`);
-      return { removed: result?.removed ?? 0, name: zone };
+      if (!result) {
+        throw new UnboundError(ERROR_KINDS.COMMAND, `unexpected answer to flush_zone`);
+      }
+      logger.info(`${this.label()}: cache flushed (${zone}), ${result.removed} entries`);
+      return { removed: result.removed, name: zone };
     } catch (err) {
       if (!err.kind) {
         throw err;

@@ -246,3 +246,33 @@ test('formatUptime', () => {
   assert.equal(formatUptime(600), '10 min');
   assert.equal(formatUptime(null), null);
 });
+
+test('a scene action right after the start raises no false surge', async (t) => {
+  const w = await world(t, { config: { ...TLS_CONFIG, queries_alert: 100 } });
+  w.clock.advance(2_000);
+  w.unbound.traffic({ queries: 50 });
+  const ack = await w.fake.sceneAction('read_statistics', {});
+  assert.equal(ack.success, true, ack.error);
+  assert.equal(events(w, TRIGGERS.QUERIES_SURGE).length, 0);
+});
+
+test('turning an alert off re-arms it', async (t) => {
+  const w = await world(t, { config: { ...TLS_CONFIG, queries_alert: 100 } });
+  await warmUp(w, { queries: 500 });
+  assert.equal(events(w, TRIGGERS.QUERIES_SURGE).length, 1);
+  await w.fake.configUpdated({ ...TLS_CONFIG, queries_alert: 0 });
+  await warmUp(w, { queries: 500 });
+  await w.fake.configUpdated({ ...TLS_CONFIG, queries_alert: 100 });
+  await warmUp(w, { queries: 500 });
+  assert.equal(events(w, TRIGGERS.QUERIES_SURGE).length, 2);
+});
+
+test('a key that does not match the certificate is a configuration problem', async (t) => {
+  const { generateKeyPairSync } = await import('node:crypto');
+  const key = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const w = await world(t, { config: { ...TLS_CONFIG, control_key: key } });
+  assert.match(w.fake.connectionStatus.message.en, /Client key: does not match/);
+  assert.equal(w.unbound.commands.length, 0);
+});

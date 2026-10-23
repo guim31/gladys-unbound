@@ -162,6 +162,11 @@ export class Rates {
       const base =
         older.findLast((sample) => sample.at <= stats.at - MIN_SPAN_MS) ?? older[0] ?? last;
       const ms = stats.at - base.at;
+      // Nothing old enough yet (a reading asked right after a start): no
+      // rate rather than a burst blown up to a minute.
+      if (ms < MIN_SPAN_MS) {
+        return this.windowRates(stats, rates);
+      }
       rates.queriesPerMinute = perMinute(stats.queries - base.queries, ms);
       if (stats.extended && base.extended) {
         rates.servfailPerMinute = perMinute(stats.servfail - base.servfail, ms);
@@ -169,6 +174,11 @@ export class Rates {
       }
     }
 
+    return this.windowRates(stats, rates);
+  }
+
+  /** The cache hit rate and recursion time over the window (or since the start). */
+  windowRates(stats, rates) {
     // Over the window, or since the start of Unbound at the first reading.
     const first = this.samples.length > 1 ? this.samples[0] : null;
     const hits = stats.cacheHits - (first?.cacheHits ?? 0);
