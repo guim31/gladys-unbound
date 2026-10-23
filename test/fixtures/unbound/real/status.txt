@@ -1,0 +1,7 @@
+version: 1.25.2
+verbosity: 1
+threads: 1
+modules: 2 [ validator iterator ]
+uptime: 123 seconds
+options: reuseport control(ssl)
+unbound (pid 1) is running...

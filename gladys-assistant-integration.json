@@ -1,177 +1,762 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Unbound",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Unbound DNS resolver: queries, cache, recursion time, SERVFAIL, alerts and cache flush.",
+    "fr": "Résolveur DNS Unbound : requêtes, cache, temps de récursion, SERVFAIL, alertes, vider le cache.",
+    "de": "DNS-Resolver Unbound: Anfragen, Cache, Rekursionszeit, SERVFAIL, Warnungen, Cache leeren.",
+    "es": "Resolutor DNS Unbound: consultas, caché, tiempo de recursión, SERVFAIL, alertas, vaciar caché."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-unbound:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-unbound/main/cover.png",
+  "categories": ["network"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Unbound server",
+        "fr": "Votre serveur Unbound",
+        "de": "Dein Unbound-Server",
+        "es": "Su servidor Unbound"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Gladys reads Unbound through its remote control (remote-control: in unbound.conf, port 8953): control-enable: yes, and control-interface on an address Gladys reaches.",
+        "fr": "Gladys lit Unbound par son contrôle à distance (remote-control: dans unbound.conf, port 8953) : control-enable: yes, et control-interface sur une adresse que Gladys atteint.",
+        "de": "Gladys liest Unbound über seine Fernsteuerung (remote-control: in unbound.conf, Port 8953): control-enable: yes und control-interface auf einer Adresse, die Gladys erreicht.",
+        "es": "Gladys lee Unbound mediante su control remoto (remote-control: en unbound.conf, puerto 8953): control-enable: yes, y control-interface en una dirección que Gladys alcance."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://unbound.docs.nlnetlabs.nl/en/latest/manpages/unbound.conf.html#remote-control-options",
+          "label": {
+            "en": "Remote control options",
+            "fr": "Options du contrôle à distance",
+            "de": "Optionen der Fernsteuerung",
+            "es": "Opciones del control remoto"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "host",
+      "type": "string",
+      "label": {
+        "en": "Address",
+        "fr": "Adresse",
+        "de": "Adresse",
+        "es": "Dirección"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "description": {
+        "en": "IP address or name of the server, with :port if it is not 8953.",
+        "fr": "Adresse IP ou nom du serveur, avec :port si ce n'est pas 8953.",
+        "de": "IP-Adresse oder Name des Servers, mit :Port, wenn es nicht 8953 ist.",
+        "es": "Dirección IP o nombre del servidor, con :puerto si no es 8953."
+      },
+      "placeholder": {
+        "en": "e.g. 192.168.1.2",
+        "fr": "ex. 192.168.1.2",
+        "de": "z. B. 192.168.1.2",
+        "es": "p. ej. 192.168.1.2"
+      },
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "default": ""
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "name",
+      "type": "string",
+      "label": {
+        "en": "Name",
+        "fr": "Nom",
+        "de": "Name",
+        "es": "Nombre"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "description": {
+        "en": "Name of the device in Gladys. Empty: \"Unbound\" followed by the address.",
+        "fr": "Nom de l'appareil dans Gladys. Vide : « Unbound » suivi de l'adresse.",
+        "de": "Name des Geräts in Gladys. Leer: „Unbound“ gefolgt von der Adresse.",
+        "es": "Nombre del dispositivo en Gladys. Vacío: «Unbound» seguido de la dirección."
+      },
+      "placeholder": {
+        "en": "e.g. Home DNS",
+        "fr": "ex. DNS de la maison",
+        "de": "z. B. DNS zu Hause",
+        "es": "p. ej. DNS de casa"
+      },
       "required": false,
-      "default": "celsius",
+      "default": ""
+    },
+    {
+      "key": "connection",
+      "type": "select",
+      "label": {
+        "en": "Connection",
+        "fr": "Connexion",
+        "de": "Verbindung",
+        "es": "Conexión"
+      },
+      "description": {
+        "en": "TLS with the certificates of unbound-control-setup (Unbound's default), or plain TCP if unbound.conf says control-use-cert: no.",
+        "fr": "TLS avec les certificats d'unbound-control-setup (par défaut dans Unbound), ou TCP simple si unbound.conf indique control-use-cert: no.",
+        "de": "TLS mit den Zertifikaten von unbound-control-setup (Standard von Unbound) oder einfaches TCP, wenn in unbound.conf control-use-cert: no steht.",
+        "es": "TLS con los certificados de unbound-control-setup (por defecto en Unbound), o TCP simple si unbound.conf indica control-use-cert: no."
+      },
+      "required": false,
+      "default": "tls",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "tls",
+          "label": {
+            "en": "TLS with certificates",
+            "fr": "TLS avec certificats",
+            "de": "TLS mit Zertifikaten",
+            "es": "TLS con certificados"
+          }
+        },
+        {
+          "value": "plain",
+          "label": {
+            "en": "Plain TCP (control-use-cert: no)",
+            "fr": "TCP simple (control-use-cert: no)",
+            "de": "Einfaches TCP (control-use-cert: no)",
+            "es": "TCP simple (control-use-cert: no)"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "certificates",
+      "type": "section",
+      "label": {
+        "en": "Certificates (TLS)",
+        "fr": "Certificats (TLS)",
+        "de": "Zertifikate (TLS)",
+        "es": "Certificados (TLS)"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Open each file made by unbound-control-setup (often in /etc/unbound) and paste its whole content, from -----BEGIN to -----END. Not needed in plain TCP.",
+        "fr": "Ouvrez chaque fichier créé par unbound-control-setup (souvent dans /etc/unbound) et collez tout son contenu, de -----BEGIN à -----END. Inutile en TCP simple.",
+        "de": "Öffne jede von unbound-control-setup erzeugte Datei (oft in /etc/unbound) und füge ihren ganzen Inhalt ein, von -----BEGIN bis -----END. Bei einfachem TCP nicht nötig.",
+        "es": "Abra cada archivo creado por unbound-control-setup (a menudo en /etc/unbound) y pegue todo su contenido, de -----BEGIN a -----END. No es necesario en TCP simple."
+      }
+    },
+    {
+      "key": "server_cert",
+      "type": "string",
+      "label": {
+        "en": "Server certificate (unbound_server.pem)",
+        "fr": "Certificat du serveur (unbound_server.pem)",
+        "de": "Serverzertifikat (unbound_server.pem)",
+        "es": "Certificado del servidor (unbound_server.pem)"
+      },
+      "placeholder": {
+        "en": "-----BEGIN CERTIFICATE-----…",
+        "fr": "-----BEGIN CERTIFICATE-----…",
+        "de": "-----BEGIN CERTIFICATE-----…",
+        "es": "-----BEGIN CERTIFICATE-----…"
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": ""
+    },
+    {
+      "key": "control_cert",
+      "type": "string",
+      "label": {
+        "en": "Client certificate (unbound_control.pem)",
+        "fr": "Certificat client (unbound_control.pem)",
+        "de": "Client-Zertifikat (unbound_control.pem)",
+        "es": "Certificado de cliente (unbound_control.pem)"
+      },
+      "placeholder": {
+        "en": "-----BEGIN CERTIFICATE-----…",
+        "fr": "-----BEGIN CERTIFICATE-----…",
+        "de": "-----BEGIN CERTIFICATE-----…",
+        "es": "-----BEGIN CERTIFICATE-----…"
+      },
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "control_key",
+      "type": "secret",
+      "label": {
+        "en": "Client key (unbound_control.key)",
+        "fr": "Clé client (unbound_control.key)",
+        "de": "Client-Schlüssel (unbound_control.key)",
+        "es": "Clave de cliente (unbound_control.key)"
+      },
+      "description": {
+        "en": "Kept by Gladys, never shown again nor written in the logs.",
+        "fr": "Conservée par Gladys, jamais réaffichée ni écrite dans les logs.",
+        "de": "Von Gladys gespeichert, nie wieder angezeigt und nie in die Protokolle geschrieben.",
+        "es": "Gladys la guarda, no se vuelve a mostrar ni se escribe en los registros."
+      },
+      "required": false
+    },
+    {
+      "key": "options",
+      "type": "section",
+      "label": {
+        "en": "Options",
+        "fr": "Options",
+        "de": "Optionen",
+        "es": "Opciones"
+      }
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often Unbound is read. The rates per minute are measured between two readings.",
+        "fr": "Fréquence de lecture d'Unbound. Les taux par minute sont mesurés entre deux lectures.",
+        "de": "Wie oft Unbound gelesen wird. Die Raten pro Minute werden zwischen zwei Abfragen gemessen.",
+        "es": "Con qué frecuencia se lee Unbound. Las tasas por minuto se miden entre dos lecturas."
+      },
+      "required": false,
+      "default": "60",
+      "options": [
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "servfail_alert",
+      "type": "number",
+      "label": {
+        "en": "SERVFAIL alert (per minute)",
+        "fr": "Alerte SERVFAIL (par minute)",
+        "de": "SERVFAIL-Warnung (pro Minute)",
+        "es": "Alerta SERVFAIL (por minuto)"
+      },
+      "description": {
+        "en": "The scene event fires when SERVFAIL answers reach this rate (needs extended-statistics: yes). 0: off.",
+        "fr": "L'événement de scène se déclenche quand les réponses SERVFAIL atteignent ce rythme (extended-statistics: yes requis). 0 : désactivé.",
+        "de": "Das Szenen-Ereignis wird ausgelöst, wenn die SERVFAIL-Antworten diese Rate erreichen (extended-statistics: yes nötig). 0: aus.",
+        "es": "El evento de escena se activa cuando las respuestas SERVFAIL alcanzan este ritmo (requiere extended-statistics: yes). 0: desactivado."
+      },
+      "required": false,
+      "default": 20,
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "key": "queries_alert",
+      "type": "number",
+      "label": {
+        "en": "Query surge alert (per minute)",
+        "fr": "Alerte d'emballement (requêtes par minute)",
+        "de": "Anfragen-Anstieg-Warnung (pro Minute)",
+        "es": "Alerta de avalancha (consultas por minuto)"
+      },
+      "description": {
+        "en": "The scene event fires when the queries reach this rate: a device gone mad, a loop. 0: off.",
+        "fr": "L'événement de scène se déclenche quand les requêtes atteignent ce rythme : un appareil qui s'emballe, une boucle. 0 : désactivé.",
+        "de": "Das Szenen-Ereignis wird ausgelöst, wenn die Anfragen diese Rate erreichen: ein außer Kontrolle geratenes Gerät, eine Schleife. 0: aus.",
+        "es": "El evento de escena se activa cuando las consultas alcanzan este ritmo: un dispositivo desbocado, un bucle. 0: desactivado."
+      },
+      "required": false,
+      "default": 2000,
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "key": "allow_flush",
+      "type": "boolean",
+      "label": {
+        "en": "Allow flushing the cache",
+        "fr": "Autoriser à vider le cache",
+        "de": "Cache leeren erlauben",
+        "es": "Permitir vaciar la caché"
+      },
+      "description": {
+        "en": "Off by default: Gladys then only reads Unbound. On: the scene action and the widget button can empty the cache (flush_zone).",
+        "fr": "Désactivé par défaut : Gladys ne fait alors que lire Unbound. Activé : l'action de scène et le bouton du widget peuvent vider le cache (flush_zone).",
+        "de": "Standardmäßig aus: Gladys liest Unbound dann nur. An: Die Szenenaktion und die Widget-Taste können den Cache leeren (flush_zone).",
+        "es": "Desactivado por defecto: Gladys solo lee Unbound. Activado: la acción de escena y el botón del widget pueden vaciar la caché (flush_zone)."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the feature names",
+        "fr": "Langue des noms de fonctionnalités",
+        "de": "Sprache der Funktionsnamen",
+        "es": "Idioma de los nombres de funciones"
+      },
+      "description": {
+        "en": "Names given to the features when the device is added, and texts of the scene events and actions.",
+        "fr": "Noms donnés aux fonctionnalités à l'ajout de l'appareil, et textes des événements et actions de scène.",
+        "de": "Namen der Funktionen beim Hinzufügen des Geräts und Texte der Szenen-Ereignisse und -Aktionen.",
+        "es": "Nombres de las funciones al añadir el dispositivo y textos de los eventos y acciones de escena."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "description": {
+        "en": "Reads Unbound now and reports what it finds.",
+        "fr": "Lit Unbound maintenant et indique ce qu'il trouve.",
+        "de": "Liest Unbound sofort und meldet, was es findet.",
+        "es": "Lee Unbound ahora e indica lo que encuentra."
+      },
       "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+      "key": "resolver_unreachable",
+      "label": {
+        "en": "Unbound no longer answers",
+        "fr": "Unbound ne répond plus",
+        "de": "Unbound antwortet nicht mehr",
+        "es": "Unbound ya no responde"
       },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
+      "description": {
+        "en": "The remote control of Unbound stopped answering (two reads in a row): the DNS of the home may be down.",
+        "fr": "Le contrôle à distance d'Unbound ne répond plus (deux lectures de suite) : le DNS de la maison est peut-être en panne.",
+        "de": "Die Fernsteuerung von Unbound antwortet nicht mehr (zwei Abfragen in Folge): Das DNS des Hauses ist vielleicht ausgefallen.",
+        "es": "El control remoto de Unbound ha dejado de responder (dos lecturas seguidas): el DNS de la casa puede estar caído."
+      },
       "variables": [
         {
-          "key": "target",
+          "key": "server",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Server name",
+            "fr": "Nom du serveur",
+            "de": "Name des Servers",
+            "es": "Nombre del servidor"
+          }
+        },
+        {
+          "key": "device",
+          "type": "string",
+          "label": {
+            "en": "Unbound device",
+            "fr": "Appareil Unbound",
+            "de": "Unbound-Gerät",
+            "es": "Dispositivo Unbound"
+          }
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "Error",
+            "fr": "Erreur",
+            "de": "Fehler",
+            "es": "Error"
+          }
+        }
+      ]
+    },
+    {
+      "key": "resolver_recovered",
+      "label": {
+        "en": "Unbound answers again",
+        "fr": "Unbound répond de nouveau",
+        "de": "Unbound antwortet wieder",
+        "es": "Unbound vuelve a responder"
+      },
+      "description": {
+        "en": "Unbound, which no longer answered, is back.",
+        "fr": "Unbound, qui ne répondait plus, est de retour.",
+        "de": "Unbound, das nicht mehr antwortete, ist wieder da.",
+        "es": "Unbound, que no respondía, ha vuelto."
+      },
+      "variables": [
+        {
+          "key": "server",
+          "type": "string",
+          "label": {
+            "en": "Server name",
+            "fr": "Nom du serveur",
+            "de": "Name des Servers",
+            "es": "Nombre del servidor"
+          }
+        },
+        {
+          "key": "device",
+          "type": "string",
+          "label": {
+            "en": "Unbound device",
+            "fr": "Appareil Unbound",
+            "de": "Unbound-Gerät",
+            "es": "Dispositivo Unbound"
+          }
+        },
+        {
+          "key": "down_minutes",
+          "type": "number",
+          "label": {
+            "en": "Minutes without answer",
+            "fr": "Minutes sans réponse",
+            "de": "Minuten ohne Antwort",
+            "es": "Minutos sin respuesta"
+          }
+        }
+      ]
+    },
+    {
+      "key": "servfail_high",
+      "label": {
+        "en": "Unbound SERVFAIL above the threshold",
+        "fr": "SERVFAIL d'Unbound au-dessus du seuil",
+        "de": "SERVFAIL von Unbound über der Schwelle",
+        "es": "SERVFAIL de Unbound por encima del umbral"
+      },
+      "description": {
+        "en": "SERVFAIL answers reached the rate set in the configuration: upstream servers, DNSSEC or the internet link may be failing. Once, then again after a return below.",
+        "fr": "Les réponses SERVFAIL ont atteint le rythme fixé dans la configuration : serveurs amont, DNSSEC ou lien Internet en difficulté. Une fois, puis de nouveau après un retour sous le seuil.",
+        "de": "Die SERVFAIL-Antworten haben die in der Konfiguration festgelegte Rate erreicht: Upstream-Server, DNSSEC oder Internetverbindung haben Probleme. Einmal, dann erneut nach Rückkehr unter die Schwelle.",
+        "es": "Las respuestas SERVFAIL han alcanzado el ritmo fijado en la configuración: servidores superiores, DNSSEC o el enlace a Internet fallan. Una vez, y de nuevo tras volver por debajo."
+      },
+      "variables": [
+        {
+          "key": "server",
+          "type": "string",
+          "label": {
+            "en": "Server name",
+            "fr": "Nom du serveur",
+            "de": "Name des Servers",
+            "es": "Nombre del servidor"
+          }
+        },
+        {
+          "key": "device",
+          "type": "string",
+          "label": {
+            "en": "Unbound device",
+            "fr": "Appareil Unbound",
+            "de": "Unbound-Gerät",
+            "es": "Dispositivo Unbound"
+          }
+        },
+        {
+          "key": "servfail_per_minute",
+          "type": "number",
+          "label": {
+            "en": "SERVFAIL per minute",
+            "fr": "SERVFAIL par minute",
+            "de": "SERVFAIL pro Minute",
+            "es": "SERVFAIL por minuto"
+          }
+        },
+        {
+          "key": "threshold",
+          "type": "number",
+          "label": {
+            "en": "Threshold per minute",
+            "fr": "Seuil par minute",
+            "de": "Schwelle pro Minute",
+            "es": "Umbral por minuto"
+          }
+        }
+      ]
+    },
+    {
+      "key": "queries_surge",
+      "label": {
+        "en": "Unbound queries surging",
+        "fr": "Requêtes Unbound qui s'emballent",
+        "de": "Unbound-Anfragen steigen stark an",
+        "es": "Consultas de Unbound desbocadas"
+      },
+      "description": {
+        "en": "The queries reached the rate set in the configuration: a device in a loop, a malware, a misconfiguration. Once, then again after a return below.",
+        "fr": "Les requêtes ont atteint le rythme fixé dans la configuration : un appareil qui boucle, un logiciel malveillant, une erreur de réglage. Une fois, puis de nouveau après un retour sous le seuil.",
+        "de": "Die Anfragen haben die in der Konfiguration festgelegte Rate erreicht: ein Gerät in einer Schleife, Schadsoftware, eine Fehlkonfiguration. Einmal, dann erneut nach Rückkehr unter die Schwelle.",
+        "es": "Las consultas han alcanzado el ritmo fijado en la configuración: un dispositivo en bucle, un malware, un error de configuración. Una vez, y de nuevo tras volver por debajo."
+      },
+      "variables": [
+        {
+          "key": "server",
+          "type": "string",
+          "label": {
+            "en": "Server name",
+            "fr": "Nom du serveur",
+            "de": "Name des Servers",
+            "es": "Nombre del servidor"
+          }
+        },
+        {
+          "key": "device",
+          "type": "string",
+          "label": {
+            "en": "Unbound device",
+            "fr": "Appareil Unbound",
+            "de": "Unbound-Gerät",
+            "es": "Dispositivo Unbound"
+          }
+        },
+        {
+          "key": "queries_per_minute",
+          "type": "number",
+          "label": {
+            "en": "Queries per minute",
+            "fr": "Requêtes par minute",
+            "de": "Anfragen pro Minute",
+            "es": "Consultas por minuto"
+          }
+        },
+        {
+          "key": "threshold",
+          "type": "number",
+          "label": {
+            "en": "Threshold per minute",
+            "fr": "Seuil par minute",
+            "de": "Schwelle pro Minute",
+            "es": "Umbral por minuto"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "read_statistics",
+      "label": {
+        "en": "Read the Unbound statistics",
+        "fr": "Lire les statistiques Unbound",
+        "de": "Unbound-Statistiken lesen",
+        "es": "Leer las estadísticas de Unbound"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Reads Unbound now into a sentence, to send or speak in the next actions, and figures to test in a condition.",
+        "fr": "Lit Unbound maintenant en une phrase, à envoyer ou à dire dans les actions suivantes, et des chiffres à tester dans une condition.",
+        "de": "Liest Unbound sofort in einen Satz, zum Senden oder Vorlesen in den nächsten Aktionen, und Zahlen zum Prüfen in einer Bedingung.",
+        "es": "Lee Unbound ahora en una frase, para enviar o decir en las acciones siguientes, y cifras para comprobar en una condición."
+      },
+      "timeout_seconds": 30,
+      "outputs": [
+        {
+          "key": "sentence",
+          "type": "string",
+          "label": {
+            "en": "Sentence",
+            "fr": "Phrase",
+            "de": "Satz",
+            "es": "Frase"
+          }
+        },
+        {
+          "key": "queries_per_minute",
+          "type": "number",
+          "label": {
+            "en": "Queries per minute",
+            "fr": "Requêtes par minute",
+            "de": "Anfragen pro Minute",
+            "es": "Consultas por minuto"
+          }
+        },
+        {
+          "key": "cache_hit_rate",
+          "type": "number",
+          "label": {
+            "en": "Cache hit rate (%)",
+            "fr": "Taux de réponse du cache (%)",
+            "de": "Cache-Trefferquote (%)",
+            "es": "Tasa de aciertos de caché (%)"
+          }
+        },
+        {
+          "key": "recursion_time_ms",
+          "type": "number",
+          "label": {
+            "en": "Average recursion time (ms)",
+            "fr": "Temps de récursion moyen (ms)",
+            "de": "Mittlere Rekursionszeit (ms)",
+            "es": "Tiempo medio de recursión (ms)"
+          }
+        },
+        {
+          "key": "servfail_per_minute",
+          "type": "number",
+          "label": {
+            "en": "SERVFAIL per minute",
+            "fr": "SERVFAIL par minute",
+            "de": "SERVFAIL pro Minute",
+            "es": "SERVFAIL por minuto"
+          }
+        }
+      ]
+    },
+    {
+      "key": "flush_cache",
+      "label": {
+        "en": "Flush the Unbound cache",
+        "fr": "Vider le cache d'Unbound",
+        "de": "Unbound-Cache leeren",
+        "es": "Vaciar la caché de Unbound"
+      },
+      "description": {
+        "en": "Empties the cache, for one domain or all of it (after a DNS change). Needs \"Allow flushing the cache\" in the configuration.",
+        "fr": "Vide le cache, pour un domaine ou en entier (après un changement DNS). Exige « Autoriser à vider le cache » dans la configuration.",
+        "de": "Leert den Cache, für eine Domain oder ganz (nach einer DNS-Änderung). Erfordert „Cache leeren erlauben“ in der Konfiguration.",
+        "es": "Vacía la caché, de un dominio o entera (tras un cambio de DNS). Requiere «Permitir vaciar la caché» en la configuración."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Domain (empty: the whole cache)",
+            "fr": "Domaine (vide : tout le cache)",
+            "de": "Domain (leer: der ganze Cache)",
+            "es": "Dominio (vacío: toda la caché)"
+          },
+          "description": {
+            "en": "The domain and everything below it, e.g. example.com.",
+            "fr": "Le domaine et tout ce qui est en dessous, ex. example.com.",
+            "de": "Die Domain und alles darunter, z. B. example.com.",
+            "es": "El dominio y todo lo que está debajo, p. ej. example.com."
+          },
+          "placeholder": {
+            "en": "e.g. example.com",
+            "fr": "ex. example.com",
+            "de": "z. B. example.com",
+            "es": "p. ej. example.com"
+          },
+          "required": false,
+          "default": ""
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "removed",
+          "type": "number",
+          "label": {
+            "en": "Entries removed",
+            "fr": "Entrées supprimées",
+            "de": "Entfernte Einträge",
+            "es": "Entradas eliminadas"
+          }
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Domain flushed",
+            "fr": "Domaine vidé",
+            "de": "Geleerte Domain",
+            "es": "Dominio vaciado"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "unbound",
+      "label": {
+        "en": "Unbound",
+        "fr": "Unbound",
+        "de": "Unbound",
+        "es": "Unbound"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Queries per minute, cache hit rate, recursion time, SERVFAIL and the state of the resolver.",
+        "fr": "Requêtes par minute, taux de cache, temps de récursion, SERVFAIL et état du résolveur.",
+        "de": "Anfragen pro Minute, Cache-Trefferquote, Rekursionszeit, SERVFAIL und Zustand des Resolvers.",
+        "es": "Consultas por minuto, tasa de caché, tiempo de recursión, SERVFAIL y estado del resolutor."
+      },
+      "icon": "server",
+      "action_timeout_seconds": 20
     }
   ]
 }

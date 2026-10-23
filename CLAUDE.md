@@ -16,8 +16,8 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "flush"   # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -31,16 +31,22 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only: src/app.js registers the handlers before connect()
+src/app.js                        every SDK handler -> the hub (also used by the tests)
+src/hub.js                        the server, reading timer, states, transitions -> scene events, commands, deduplicated logs
+src/devices.js                    the device of the server: features, names (4 languages), values
+src/unbound/transport.js          one remote control exchange: TCP or TLS, "UBCT1 <command>", read until close
+src/unbound/client.js             the only commands sent: status, stats_noreset, flush_zone (name checked)
+src/unbound/model.js              parsing the answers; rates between readings, 15-minute window
+src/unbound/pem.js                certificates pasted on one line (or a path) -> PEM, checked, never logged
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget `unbound` (manifest `widgets`)
+src/texts.js                      connection, error, report, statistics and action texts (4 languages)
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+                                  and helpers/fakeUnbound.js (built from test/fixtures/unbound/real)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +76,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, widget content, feature names, manifest texts, and
+  `docs/en.md`, `docs/fr.md`, `docs/de.md`, `docs/es.md`, kept in sync
+  (`test/i18n.test.js` checks the languages and the doc sections).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -197,6 +205,42 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
 - Les filtres de scène ne font qu'égalité et appartenance : un seuil reste le travail d'un capteur.
 - **Les clés de widgets, de déclencheurs et d'actions sont figées une fois publiées.**
 - `gladys_version` `>=5.1.0` dès qu'il y a widgets, déclencheurs ou actions de scène.
+
+## Unbound (propre à ce dépôt)
+
+- **Canal de contrôle à distance** d'Unbound (protocole d'`unbound-control`), vérifié sur un vrai
+  **Unbound 1.25.2** (paquet Alpine en Docker, réseau isolé, 24/10/2026) : connexion TCP, TLS sauf
+  `control-use-cert: no`, ligne `UBCT1 <commande>\n`, puis tout ce qu'Unbound écrit jusqu'à la
+  fermeture. Réponses réelles dans `test/fixtures/unbound/real/`. Pas d'exporteur Prometheus.
+- **Commandes** : `status` et `stats_noreset` seulement, et `flush_zone <nom>` derrière
+  `allow_flush` (faux par défaut). **Jamais `stats`** : il remet les compteurs à zéro. Une erreur
+  répond `error …` (vérifié : `error unknown command 'x'`). `flush_zone .` vide tout ;
+  réponse `ok removed N rrsets, M messages and K key entries`. Le nom est filtré (`isZoneName`) :
+  un saut de ligne serait une seconde commande.
+- **TLS** : le certificat serveur d'`unbound-control-setup` est auto-signé, `CN=unbound`,
+  `CA:TRUE`, sans nom d'hôte. Node l'accepte en `ca` épinglé ; `checkServerIdentity` vérifie
+  seulement `CN === 'unbound'` (comme `unbound-control`), l'adresse tapée n'y joue aucun rôle.
+  Vérifié : mauvais `ca` → `DEPTH_ZERO_SELF_SIGNED_CERT` ; TCP simple vers un port TLS →
+  `ECONNRESET` (`closed`) ; port fermé → `ECONNREFUSED`.
+- **Champs de certificats** : Gladys n'a pas de zone multiligne ; une `input` supprime les retours
+  à la ligne d'un PEM collé. `normalizePem` reconstruit les blocs (corps base64 recoupé à 64). Un
+  chemin absolu est aussi accepté (fichier lisible dans le conteneur). La clé est un champ
+  `secret` ; les erreurs nomment le champ fautif, jamais son contenu. Les tests fabriquent une clé
+  à l'exécution : **aucune clé privée dans le dépôt** (les deux certificats publics, si).
+- **Statistiques** : compteurs depuis le démarrage (ou le dernier `stats`). SERVFAIL et NXDOMAIN
+  (`num.answer.rcode.*`) n'existent qu'avec `extended-statistics: yes` : sans elles l'appareil a
+  6 fonctionnalités, avec elles 8 (republication, `structure_changed`). Les taux par minute se
+  calculent entre deux lectures avec `time.now` d'Unbound, depuis une lecture vieille d'au moins
+  20 s (une lecture demandée par une scène juste après le minuteur ne fabrique pas de pic). Taux de
+  cache et temps de récursion moyen sur 15 min (`avg × recursivereplies` se soustrait) ; à la
+  première lecture, valeurs depuis le démarrage. Un compteur qui baisse (redémarrage, `stats`)
+  vide l'historique.
+- `statistics-interval` sans `statistics-cumulative: yes` remet aussi les compteurs à zéro :
+  documenté.
+- Identité de l'appareil fixe (`unbound:server`) : Unbound n'expose aucun identifiant d'instance.
+  Un seul serveur par installation.
+- Seuils (SERVFAIL, requêtes par minute) dans la configuration, car les filtres de scène ne font
+  qu'égalité : événement à la montée, réarmé sous le seuil.
 
 ## Store
 
