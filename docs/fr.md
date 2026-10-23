@@ -1,67 +1,187 @@
-# Template de démonstration
+# Unbound
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Suivez votre résolveur DNS [Unbound](https://nlnetlabs.nl/projects/unbound/about/)
+depuis Gladys, sur votre réseau local : requêtes par minute, taux de réponse du
+cache, temps de récursion moyen, réponses SERVFAIL et NXDOMAIN, temps de
+fonctionnement, et une alerte quand il ne répond plus, échoue trop souvent ou
+reçoit une avalanche de requêtes. Unbound est souvent le résolveur récursif
+placé derrière Pi-hole, AdGuard Home ou Blocky : eux bloquent les publicités,
+Unbound répond au reste. Cette intégration surveille le résolveur, pas le
+blocage.
 
-## Ce que vous obtenez
+> **Testée contre un vrai Unbound 1.25.2** (paquet Alpine, dans Docker, avec
+> les certificats d'`unbound-control-setup` et de vraies requêtes `dig`), pas
+> encore avec une vraie installation de Gladys : vos retours sont les
+> bienvenus. Si quelque chose ne marche pas comme décrit, dites-le sur le
+> [forum Gladys](https://community.gladysassistant.com) ou dans les
+> [issues](https://github.com/guim31/gladys-unbound/issues).
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+## Ce qu'il faut
+
+- Gladys Assistant 5.1.0 ou plus récent.
+- **Unbound** avec son **contrôle à distance** activé, le canal qu'utilise
+  `unbound-control`. Gladys envoie les mêmes commandes que `unbound-control
+stats_noreset` et `unbound-control status` : elle ne fait que lire, et ne lance
+  jamais `stats`, qui remet les compteurs à zéro.
+- Pour les chiffres SERVFAIL et NXDOMAIN, les **statistiques étendues**.
+
+Dans `unbound.conf` :
+
+```yaml
+server:
+  extended-statistics: yes
+
+remote-control:
+  control-enable: yes
+  # Une adresse de la machine Unbound que Gladys peut atteindre (pas
+  # 127.0.0.1 : Gladys fait tourner l'intégration dans son propre conteneur).
+  control-interface: 192.168.1.2
+  control-port: 8953
+```
+
+Créez ensuite les certificats une fois, sur la machine Unbound, puis
+redémarrez Unbound :
+
+```bash
+sudo unbound-control-setup
+sudo systemctl restart unbound
+```
+
+`unbound-control-setup` écrit trois fichiers, en général dans `/etc/unbound` :
+`unbound_server.pem`, `unbound_control.pem` et `unbound_control.key` (plus la
+clé du serveur, qui reste là). Vérifiez que `sudo unbound-control status`
+fonctionne sur la machine avant de continuer.
+
+Si `statistics-interval` est réglé dans `unbound.conf`, réglez aussi
+`statistics-cumulative: yes` : sinon Unbound remet ses compteurs à zéro à
+chaque intervalle et les taux sont faux.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Dans Gladys, **Intégrations → Unbound → Configuration** :
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+1. **Adresse** : l'adresse IP ou le nom de la machine Unbound, avec `:port` si
+   le port de contrôle n'est pas 8953.
+2. **Nom** : le nom de l'appareil dans Gladys (facultatif).
+3. **Connexion** : _TLS avec certificats_ (par défaut dans Unbound), ou _TCP
+   simple_ si `unbound.conf` indique `control-use-cert: no`. Le TCP simple n'a
+   aucun mot de passe : quiconque atteint le port peut arrêter Unbound. Ne le
+   gardez que pour un port fermé au reste du réseau.
+4. **Certificats** : ouvrez chaque fichier avec un éditeur de texte (`sudo cat
+/etc/unbound/unbound_control.pem`) et collez tout son contenu, de
+   `-----BEGIN` à `-----END`, dans _Certificat du serveur_
+   (`unbound_server.pem`), _Certificat client_ (`unbound_control.pem`) et _Clé
+   client_ (`unbound_control.key`). Le champ ne garde qu'une ligne : c'est
+   normal, l'intégration remet les retours à la ligne. La clé est conservée
+   comme secret, jamais réaffichée ni écrite dans les logs.
+5. **Options** : l'intervalle de rafraîchissement (1 minute par défaut), les
+   deux seuils d'alerte, _Autoriser à vider le cache_ (désactivé par défaut),
+   et la langue des noms de fonctionnalités.
+6. Enregistrez, puis **Tester la connexion** : elle affiche la version
+   d'Unbound, la connexion utilisée, son temps de fonctionnement et si les
+   statistiques étendues sont actives.
+7. Dans l'onglet **Découverte**, ajoutez l'appareil.
 
-## Actions
+## L'appareil
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+Un appareil pour le serveur, avec ces fonctionnalités :
 
-## Scènes
+| Fonctionnalité           | Ce qu'elle montre                                                |
+| ------------------------ | ---------------------------------------------------------------- |
+| Joignable                | 1 quand le contrôle à distance répond, 0 sinon                   |
+| Requêtes DNS par minute  | Requêtes reçues, entre les deux dernières lectures               |
+| Taux de réponse du cache | Part des requêtes servies par le cache, 15 dernières minutes (%) |
+| Temps de récursion moyen | Temps pour résoudre un nom absent du cache, 15 dernières minutes |
+| SERVFAIL par minute      | Résolutions en échec (statistiques étendues)                     |
+| NXDOMAIN par minute      | Noms qui n'existent pas (statistiques étendues)                  |
+| Temps de fonctionnement  | Heures depuis le démarrage d'Unbound                             |
+| Version                  | Version d'Unbound                                                |
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
-
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+Sans les statistiques étendues, l'appareil n'a ni SERVFAIL ni NXDOMAIN ;
+activez-les et Gladys propose **Mettre à jour** dans l'onglet Découverte. Les
+taux apparaissent à partir de la deuxième lecture. Après un redémarrage
+d'Unbound, ses compteurs repartent de zéro : les taux reviennent une lecture
+plus tard.
 
 ## Tableau de bord
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+Le widget **Unbound** montre trois tuiles (requêtes par minute, taux de cache,
+temps de récursion) et une liste : l'état du résolveur, SERVFAIL et NXDOMAIN
+par minute (SERVFAIL en orange au-dessus de son seuil d'alerte), temps de
+fonctionnement et version. Quand _Autoriser à vider le cache_ est activé, il a
+aussi un bouton **Vider le cache**.
+
+## Scènes
+
+### Déclencheurs
+
+- **Unbound ne répond plus** : deux lectures de suite sans réponse (la
+  deuxième 15 secondes après la première). Variables : nom du serveur,
+  appareil, erreur.
+- **Unbound répond de nouveau** : retour après une panne, avec les minutes
+  sans réponse.
+- **SERVFAIL d'Unbound au-dessus du seuil** : les réponses SERVFAIL par minute
+  atteignent _Alerte SERVFAIL_ de la configuration (20 par défaut, 0 la
+  désactive). Il se déclenche une fois, puis de nouveau seulement après un
+  retour sous le seuil. Statistiques étendues requises.
+- **Requêtes Unbound qui s'emballent** : les requêtes par minute atteignent
+  _Alerte d'emballement_ (2000 par défaut, 0 la désactive), pour un appareil
+  qui boucle ou un logiciel malveillant. Même règle d'une seule fois.
+
+### Actions
+
+- **Lire les statistiques Unbound** : lit Unbound maintenant. Donne une phrase
+  (« Unbound : 120 requêtes par minute, 85 % servies par le cache, 32 ms par
+  récursion. ») pour un message ou une annonce vocale, et les chiffres pour
+  une condition.
+- **Vider le cache d'Unbound** : vide le cache, pour un domaine et tout ce qui
+  est en dessous, ou en entier quand le champ est vide. Refusé tant
+  qu'_Autoriser à vider le cache_ n'est pas activé. Utile après la
+  modification d'un enregistrement DNS à la maison.
+
+### Idées de scènes
+
+- _Unbound ne répond plus_ → envoyer un message : « Le DNS de la maison est en
+  panne ». Ajoutez _Unbound répond de nouveau_ pour la bonne nouvelle.
+- _SERVFAIL d'Unbound au-dessus du seuil_ → un message avec le taux : le lien
+  Internet ou les serveurs amont ont un problème.
+- Chaque matin à 8 h → _Lire les statistiques Unbound_ → envoyer la phrase.
+- _Requêtes Unbound qui s'emballent_ → une notification, pour chercher
+  l'appareil qui s'emballe.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« ne répond pas »** : mauvaise adresse ou mauvais port, Unbound arrêté, ou
+  `control-interface` encore sur `127.0.0.1` (par défaut). Gladys fait tourner
+  l'intégration dans un conteneur : il lui faut une adresse du réseau, et un
+  pare-feu ouvert sur le port 8953 pour la machine Gladys.
+- **« TLS refusé »** : un des trois champs de certificats ne correspond pas aux
+  fichiers de cet Unbound (ils changent à chaque `unbound-control-setup -r`),
+  ou Unbound est en mode simple (`control-use-cert: no`) : choisissez _TCP
+  simple_.
+- **« connexion fermée : TLS attendu ? »** : _TCP simple_ est choisi mais
+  Unbound attend du TLS : choisissez _TLS avec certificats_.
+- **« collez tout le fichier »** : un champ de certificat ne contient qu'une
+  partie du fichier ; copiez tout, lignes `-----BEGIN` et `-----END` comprises.
+- **Ni SERVFAIL ni NXDOMAIN** : ajoutez `extended-statistics: yes` sous
+  `server:`, redémarrez Unbound, puis **Mettez à jour** l'appareil dans
+  l'onglet Découverte.
+- **Taux bizarres ou absents** : un autre outil lance `unbound-control stats`
+  (qui remet les compteurs à zéro), ou `statistics-interval` est réglé sans
+  `statistics-cumulative: yes`.
+- Logs : **Intégrations → Unbound → Logs**. Ajoutez `LOG_LEVEL=debug` pour
+  voir chaque lecture.
+
+## Limites
+
+- Un seul serveur Unbound par installation de l'intégration.
+- Développée avec un vrai Unbound dans Docker, sans vraie installation de
+  Gladys : vos retours sont les bienvenus.
+- Les taux par minute sont mesurés entre deux lectures : un pic plus court que
+  l'intervalle de rafraîchissement est lissé.
+- Le taux de cache et le temps de récursion couvrent les 15 dernières minutes ;
+  juste après le démarrage de l'intégration, ils couvrent le temps depuis le
+  démarrage d'Unbound.
+- Par un socket Unix seulement (`control-interface: /run/unbound.ctl`), Unbound
+  est injoignable depuis le conteneur de Gladys : utilisez une adresse réseau.
+- Sans lien avec NLnet Labs.
