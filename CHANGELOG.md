@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-23
+
 ### Added
 
 - One device for the Unbound server, read over its remote control (TLS with
@@ -28,3 +30,6 @@ the notes of the version's GitHub Release.
   on.
 - A "Test the connection" button, and texts in English, French, German and
   Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-unbound/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-unbound/releases/tag/v1.0.0
